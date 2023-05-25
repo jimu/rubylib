@@ -1,0 +1,5 @@
+git clone https://github.com/jimu/rubylib.git
+add to existing bashrc
+
+  BASHRC_SHARED2=~/proj/rubylib/bashrc
+  source $BASHRC_SHARED2
