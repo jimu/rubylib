@@ -40,6 +40,14 @@ class FalseClass
   def redgreen;       "No".green end
 end
 
+class NilClass
+  def red;            "-".red end
+end
+
+class Integer
+  def red;            to_s.red end
+end
+
 class Object
   # pretty print w/o output
   def ppp o
@@ -52,6 +60,11 @@ class Object
   end
 end
 
+def dumph hash, options={}, alt_options={}
+  header_def = hash.first.keys.join(' ')
+  rows = hash.map(&:values)
+  dump header_def, rows, options, alt_options
+end
 
 ###################################################################################################
 # DUMPS
@@ -61,11 +74,15 @@ end
 # usage:   dump 'a b', [[1 2], [3 4]]
 # usage:   dump "my~id line\nline -hide", [[1 2], [3 4]]      # spaces and newlines and hidden columns in header
 #
-def dump header_def, rows, title=nil, options={}
+def dump header_def, rows, options={}, alt_options={}
+  options = {} if options.nil?
+  options = alt_options.merge({title: options}) if options.is_a?(String)
+  title = options[:title]
   fname = options[:fname]
   indent = options[:indent] || 0
   subrows = options[:subrows]
   jira  = options[:jira]
+  html  = options[:html]
   start = options[:duration]
   start = Time.now if start == true
 
@@ -73,12 +90,13 @@ def dump header_def, rows, title=nil, options={}
   $stdout = File.new(fname,'w') if fname
 
   return dumpjira(header_def, rows, title, indent, subrows) if jira
+  return dumphtml(header_def, rows, title, indent, subrows, options) if html
 
   raise "rows must be an array" unless rows.is_a? Array
 
   prefix = ' '*indent
 
-  puts "\n#{prefix}#{title}  (#{rows&.count || 0} records)\n" if title
+  puts "\n#{prefix}#{title}  (#{rows&.count || 0} records)\n".bold if title
 
   return if rows.blank?
 
@@ -92,13 +110,13 @@ def dump header_def, rows, title=nil, options={}
   header_def.each_with_index {|col,n| lnheight = col.split.length; col.split.each_with_index{|cell,m| headers[m+height-lnheight][n] = cell.gsub('~',' ')}}
 
   rows.each do |values|
-    values.replace(values.values_at(*visible_columns))
+    values.replace(values.values_at(*visible_columns)) if values
     (0...widths.length).each do |n|
       v = values[n]
       width = v.to_s.length
       widths[n] = width if width > widths[n]
       values[n] = '-' unless v.present?
-    end
+    end if values
   end
 
   format = widths.map{|w| "#{prefix}%-#{w}s"}.join('  ')
@@ -106,7 +124,7 @@ def dump header_def, rows, title=nil, options={}
   puts format%widths.map {|w| '-'*w}
   format += "%s" if subrows
   rows.each do |values|
-    puts (format%values)
+    puts (format%values) if values
     rescue ArgumentError => e
       raise e.exception "#{e.message} (#{values.count}/#{widths.count}): #{values.inspect}"
   end
@@ -238,5 +256,54 @@ class DumpRendererJira
   def kv key, value
     value = ' ' if value.blank?
     puts "|#{key}|#{value}|"
+  end
+end
+
+def dumphtml header_def, rows, title=nil, indent=0, subrows = false, options={}
+
+  raise "rows must be an array" unless rows.is_a? Array
+
+  fname = options[:output]
+
+  prefix = ' '*indent
+  buffer = ''
+
+  buffer += "<h1>#{prefix}#{title}  (#{rows&.count || 0} records)</h1>\n" if title
+
+  return if rows.blank?
+
+  header_def = header_def.split(/ /) if header_def.is_a? String
+  visible_columns = header_def.each_index.select{|i| header_def[i][0] != '-'}
+  header_def = header_def.values_at(*visible_columns)
+
+  widths = header_def.map {|col| col.split.map{|ln|ln.length}.max}
+  height = header_def.map {|col| col.split.length}.max
+  headers = Array.new(height){Array.new(header_def.length)}
+  header_def.each_with_index {|col,n| lnheight = col.split.length; col.split.each_with_index{|cell,m| headers[m+height-lnheight][n] = cell.gsub('~',' ')}}
+
+  rows.each do |values|
+    values.replace(values.values_at(*visible_columns))
+    (0...widths.length).each do |n|
+      v = values[n]
+      width = v.to_s.length
+      widths[n] = width if width > widths[n]
+      values[n] = '--' unless v.present?
+    end
+  end
+
+  buffer += '<table border=1><tr><thead><th>' + headers.join('<th>') + '</thead>'
+  format += "%s" if subrows
+  rows.each do |values|
+    buffer += '<tr><td>' + values.join('<td>') + "</tr>\n"
+    rescue ArgumentError => e
+      raise e.exception "#{e.message} (#{values.count}/#{widths.count}): #{values.inspect}"
+  end
+  buffer += "</table>\n"
+
+  if fname
+    File.write "public/jau/#{fname}.html", buffer
+    nil
+  else
+    buffer
   end
 end
