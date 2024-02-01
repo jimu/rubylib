@@ -1,5 +1,9 @@
 git clone https://github.com/jimu/rubylib.git
-add to existing bashrc
+add to existing bashrc:
 
   BASHRC_SHARED2=~/proj/rubylib/bashrc
   source $BASHRC_SHARED2
+
+add to ~/.git-credentials:
+
+  https://x-access-token:ghp_....................................@github.com

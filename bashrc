@@ -10,3 +10,4 @@ function branches() {
   tput sgr0
 }
 alias vibr='[[ -d ~/proj/branches ]] || mkdir ~/proj/branches ; vim ~/proj/branches/branches.txt'
+alias br=branches
